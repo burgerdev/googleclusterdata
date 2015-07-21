@@ -1,0 +1,10 @@
+[database]
+
+user=<changeme>
+db=<changeme>
+pass=<changeme>
+
+[clusterdata]
+
+root=/path/to/googleclusterdata
+

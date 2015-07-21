@@ -1,12 +1,9 @@
 # -*- coding: utf-8 -*-
 
-import ConfigParser
-
 import psycopg2
 
+from config import config
 
-config = ConfigParser.ConfigParser()
-config.read("database.cfg")
 
 params = " ".join(["dbname='{}'",
                    "user='{}'",
