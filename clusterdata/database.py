@@ -21,7 +21,8 @@ class DatabaseConnectionError(Exception):
     pass
 
 
-try:
-    connection = psycopg2.connect(params)
-except:
-    raise DatabaseConnectionError("cannot connect to database")
+def get_connection():
+    try:
+        return psycopg2.connect(params)
+    except:
+        raise DatabaseConnectionError("cannot connect to database")

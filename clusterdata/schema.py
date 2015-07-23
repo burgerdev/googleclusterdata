@@ -63,8 +63,8 @@ class Table(object):
         @param row iterable of strings
         @return iterable of the correct types for each column
         """
-        for c, v in zip(self._cols, row):
-            yield c.prepare(v)
+        out = [c.prepare(v) for c, v in zip(self._cols, row)]
+        return out
 
     def __len__(self):
         return len(self._cols)
@@ -101,8 +101,10 @@ class Column(object):
         return self._row[0].split('/')[1]
 
     def prepare(self, v):
+        if len(v) == 0:
+            return None
         t = self._extract_type(self._row)
-        if t == "INT":
+        if t == "BIGINT":
             return int(v)
         if t == "FLOAT":
             return float(v)
@@ -116,6 +118,9 @@ class Column(object):
             return "VARCHAR(512)"
         if t == "STRING_HASH_OR_INTEGER":
             raise ValueError("Don't know how to interpret that")
+        if t == "INTEGER":
+            # some values in the cluster data are bigger than 2*32
+            return "BIGINT"
         return t
 
     @staticmethod

@@ -1,7 +1,9 @@
 
-from schema import get_valid_tables
-
 import logging
+
+from clusterdata.schema import get_valid_tables
+from clusterdata.database import get_connection
+
 
 logger = logging.getLogger("apply_schema")
 logging.basicConfig(level=logging.INFO)
@@ -36,7 +38,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(disclaimer)
 
-    from database import connection as conn
+    conn = get_connection()
 
     try:
         if not args.disclaimer_accepted:
