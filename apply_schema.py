@@ -1,5 +1,5 @@
 
-from schema import Table, get_table_names
+from schema import get_valid_tables
 
 import logging
 
@@ -13,14 +13,9 @@ Make sure that your input schema file is sanitized!
 
 def run(conn):
     with conn.cursor() as c:
-        for name in get_table_names():
-            table = Table(name)
-            try:
-                desc = map(lambda col: col.describe(), table)
-            except ValueError:
-                logger.warn("skipping table '{}' with "
-                            "strange types".format(name))
-                continue
+        for table in get_valid_tables():
+            name = table.name
+            desc = map(lambda col: col.describe(), table)
 
             logger.info("dropping table '{}', if it exists".format(name))
             cmd = "DROP TABLE IF EXISTS {};".format(name)

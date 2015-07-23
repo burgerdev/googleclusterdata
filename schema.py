@@ -26,10 +26,22 @@ def get_table_names():
     return _table_names
 
 
+def get_valid_tables():
+    return filter(lambda t: t.valid, map(Table, _table_names))
+
+
 class Table(object):
     """
     TODO doc
     """
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def valid(self):
+        return all(map(lambda c: c.valid, self._cols))
 
     def __init__(self, table_name):
         assert table_name in _table_names,\
@@ -39,6 +51,20 @@ class Table(object):
 
     def get_columns(self):
         return self._cols
+
+    def get_glob(self):
+        assert len(self._cols) > 0,\
+            "this table does not hold any columns"
+        g = self._cols[0].get_glob()
+        return os.path.join(_basedir, self._name, g)
+
+    def prepare(self, row):
+        """
+        @param row iterable of strings
+        @return iterable of the correct types for each column
+        """
+        for c, v in zip(self._cols, row):
+            yield c.prepare(v)
 
     def __len__(self):
         return len(self._cols)
@@ -56,11 +82,33 @@ class Column(object):
     TODO doc
     """
 
+    @property
+    def valid(self):
+        try:
+            self._extract_type(self._row)
+        except ValueError:
+            return False
+        else:
+            return True
+
     def __init__(self, row):
         self._row = row
 
     def describe(self):
         return self._describe_single_col(self._row)
+
+    def get_glob(self):
+        return self._row[0].split('/')[1]
+
+    def prepare(self, v):
+        t = self._extract_type(self._row)
+        if t == "INT":
+            return int(v)
+        if t == "FLOAT":
+            return float(v)
+        if t == "BOOLEAN":
+            return bool(v)
+        return v
 
     @staticmethod
     def _type_map(t):
