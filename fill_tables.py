@@ -14,24 +14,26 @@ logging.basicConfig(level=logging.INFO)
 
 
 def run(conn):
-    with conn.cursor() as c:
-        for table in get_valid_tables():
-            logger.info("*********************************************")
-            logger.info("processing table {}".format(table.name))
+    for table in get_valid_tables():
+        logger.info("*********************************************")
+        logger.info("processing table {}".format(table.name))
 
-            n = len(table)
-            g = table.get_glob()
+        n = len(table)
+        g = table.get_glob()
 
-            cmd = "INSERT INTO {} VALUES ({});".format(
-                table.name, ", ".join(["%s"]*n))
+        cmd = "INSERT INTO {} VALUES ({});".format(
+            table.name, ", ".join(["%s"]*n))
 
-            for filename in glob.glob(g):
-                logger.info("processing file {}".format(filename))
+        for filename in glob.glob(g):
+            logger.info("processing file {}".format(filename))
 
-                reader = csv.reader(GzipFile(filename, 'r'))
+            with GzipFile(filename, 'r') as f:
+                reader = csv.reader(f)
                 parsed = imap(table.prepare, reader)
 
-                c.executemany(cmd, parsed)
+                with conn.cursor() as c:
+                    c.executemany(cmd, parsed)
+            conn.commit()
 
 
 if __name__ == "__main__":
@@ -52,7 +54,5 @@ if __name__ == "__main__":
             run(conn)
     except:
         raise
-    else:
-        conn.commit()
     finally:
         conn.close()
