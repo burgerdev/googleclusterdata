@@ -36,7 +36,7 @@ def run(conn, args):
 
     export_file = None
     if args.export_file is not None:
-        export_file = open(args.export_file, 'w')
+        export_file = open(args.export_file, 'a')
 
     try:
         if not debug:
@@ -49,11 +49,7 @@ def run(conn, args):
 
             start_time = time.time()
 
-            n = len(table)
             g = table.get_glob()
-
-            cmd = "INSERT INTO {} VALUES ({});".format(
-                table.name, ", ".join(["%s"]*n))
 
             filenames = sorted(glob.glob(g))
             num_filenames = len(filenames)
@@ -66,11 +62,8 @@ def run(conn, args):
                 logger.info("processing file '{}'".format(filename))
 
                 with gzip.GzipFile(filename, 'r') as f:
-                    reader = csv.reader(f)
-                    parsed = map(table.prepare, reader)
-
                     with conn.cursor() as c:
-                        c.executemany(cmd, parsed)
+                        c.copy_from(f, table.name, sep=',', null='')
                 if debug:
                     logger.info("skipping remainder because "
                                 "we're in debug mode")
@@ -109,6 +102,9 @@ if __name__ == "__main__":
                         default=None,
                         help="use this file to resume a former run")
     args = parser.parse_args()
+
+    if args.export_file is None:
+        args.export_file = args.import_file
 
     conn = get_connection()
 
