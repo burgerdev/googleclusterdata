@@ -1,7 +1,6 @@
 
 import time
 import logging
-import csv
 import glob
 import gzip
 
