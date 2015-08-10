@@ -23,9 +23,15 @@ def run(conn):
             cmd = "DROP TABLE IF EXISTS {};".format(name)
             c.execute(cmd)
 
-            logger.info("creating table '{}', if it exists".format(name))
+            logger.info("creating table '{}'".format(name))
             cmd = "CREATE TABLE {} ({});".format(name, ", ".join(desc))
             c.execute(cmd)
+
+        # execute special commands
+        name = "task_usage"
+        logger.info("creating index on table {}".format(name))
+        cmd = "CREATE INDEX ON {} (start_time, end_time);".format(name)
+        c.execute(cmd)
 
 
 if __name__ == "__main__":
