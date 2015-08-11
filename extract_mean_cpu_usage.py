@@ -1,5 +1,6 @@
 
 import sys
+import os
 
 import numpy as np
 import h5py
@@ -78,6 +79,14 @@ def run(args):
     h5f.close()
 
 
+class ConsoleOutputSuppression(object):
+    def __enter__(self):
+        os.system("stty -echo")
+
+    def __exit__(self, *args):
+        os.system("stty echo")
+
+
 if __name__ == "__main__":
     from argparse import ArgumentParser
 
@@ -94,8 +103,8 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--end", action="store", type=int,
                         default=2506200000001,
                         help="end time in microseconds")
-                        
+
     args = parser.parse_args()
 
-    run(args)
-        
+    with ConsoleOutputSuppression():
+        run(args)
