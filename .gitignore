@@ -1,2 +1,3 @@
 defaults.cfg
 *.pyc
+.spyderproject
