@@ -21,7 +21,7 @@ from clusterdata.database import get_connection
 
 _QUERY = """
 SELECT cpu_rate, start_time, end_time FROM task_usage
-WHERE start_time <= %(start)s AND end_time >= %(start)s
+WHERE start_time <= %(end)s AND end_time >= %(start)s
 """
 
 
@@ -47,7 +47,7 @@ def update_log(current_time_us, min_time_us, max_time_us):
 def get_cpu_usage_for_interval(start, end):
     with get_connection() as conn:
         with conn.cursor() as cursor:
-            cursor.execute(_QUERY, {'start': start})
+            cursor.execute(_QUERY, {'start': start, 'end': end})
             res = cursor.fetchall()
     x = np.asarray(res)
     if x.size == 0:
