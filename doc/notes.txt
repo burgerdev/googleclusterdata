@@ -7,3 +7,4 @@
 
   - some machines are repeatedly removed and added to the cluster, but their
     number of CPUs always remains the same
+  - sum of all machines' cpus: 6653.75

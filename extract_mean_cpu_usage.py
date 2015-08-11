@@ -6,15 +6,23 @@ import h5py
 
 from clusterdata.database import get_connection
 
-_MACHINE_SUBQUERY = """
-SELECT DISTINCT(machine_id) AS m_id, cpus FROM machine_events
-""".strip()
+
+# good idea, but cpu usage is not normalized per machine but globally
+
+#_MACHINE_SUBQUERY = """
+#SELECT DISTINCT(machine_id) AS m_id, cpus FROM machine_events
+#""".strip()
+#
+#_QUERY = """
+#SELECT cpu_rate, cpus FROM task_usage JOIN ({}) AS machines
+#ON task_usage.machine_id = machines.m_id
+#WHERE task_usage.start_time <= %s AND task_usage.end_time > %s
+#""".format(_MACHINE_SUBQUERY).strip()
 
 _QUERY = """
-SELECT cpu_rate, cpus FROM task_usage JOIN ({}) AS machines
-ON task_usage.machine_id = machines.m_id
-WHERE task_usage.start_time <= %s AND task_usage.end_time > %s
-""".format(_MACHINE_SUBQUERY).strip()
+SELECT cpu_rate, start_time, end_time FROM task_usage
+WHERE start_time <= %(start)s AND end_time >= %(start)s
+"""
 
 
 def to_day(t):
@@ -31,7 +39,7 @@ def update_log(current_time_us, min_time_us, max_time_us):
     current_time_d = to_day(current_time_us)
     max_time_d = to_day(max_time_us)
     percentage = to_percentage(current_time_d, max_time_d)
-    sys.stdout.write("\rday {:.03f} of {:.03f} ({:.02f}%)"
+    sys.stdout.write("\rday {:.01f} of {:.01f} ({:.02f}%)"
                      "".format(current_time_d, max_time_d, percentage))
     sys.stdout.flush()
 
@@ -39,13 +47,15 @@ def update_log(current_time_us, min_time_us, max_time_us):
 def get_cpu_usage_for_interval(start, end):
     with get_connection() as conn:
         with conn.cursor() as cursor:
-            cursor.execute(_QUERY, (start, end))
+            cursor.execute(_QUERY, {'start': start})
             res = cursor.fetchall()
-    a = np.asarray(res)
-    if a.size == 0:
+    x = np.asarray(res)
+    if x.size == 0:
         return 0.0
-    normalized = a[:, 0] / a[:, 1]
-    return normalized.sum()
+    a = np.maximum(x[:, 1], start)
+    b = np.minimum(x[:, 2], end)
+    w = (b - a)/float(end - start)
+    return (x[:, 0] * w).sum()
 
 
 def run(args):
