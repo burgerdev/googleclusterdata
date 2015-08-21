@@ -31,15 +31,14 @@ def add_means_to_array(arr, out):
     """
     TODO doc
     """
-    min_ind = int(np.floor(arr[0, 1]))
-    max_ind = int(np.ceil(arr[-1, 2]))
-    if max_ind == int(arr[-1, 2]):
-        max_ind += 1
-    n = max_ind-min_ind
-
+    n = len(out)
+    first_ind = int(np.floor(arr[0, 1]))
+    first_ind = max(0, first_ind)
+    last_ind = int(np.floor(arr[-1, 2]))
+    last_ind = min(n, last_ind)
     x = np.zeros((n,))
 
-    for i in range(n):
+    for i in range(first_ind, last_ind):
         a = np.maximum(arr[:, 1], i)
         b = np.minimum(arr[:, 2], i+1)
         w = b - a
@@ -47,7 +46,7 @@ def add_means_to_array(arr, out):
         w = np.maximum(w, 0)
         x[i] = (arr[:, 0] * w).sum()
 
-    out[min_ind:max_ind] += x
+    out[:] += x
 
 
 def get_data_for_interval(limit, offset, start, end, resolution, out):

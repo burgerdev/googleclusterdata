@@ -2,9 +2,11 @@
 
   - minimum start_time: 600000000
   - maximum start_time: 2506199000000
+  - approximate number of rows: 1185490000 (~ 1e9)
 
 # machine_events
 
   - some machines are repeatedly removed and added to the cluster, but their
     number of CPUs always remains the same
   - sum of all machines' cpus: 6653.75
+
