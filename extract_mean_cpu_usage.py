@@ -96,6 +96,8 @@ def run(args):
             if args.verbose:
                 update_log(t, args.start, args.end)
             logger.info("Processed {} rows".format(offset))
+            if t > args.end:
+                break
         except EndOfData:
             break
         finally:
