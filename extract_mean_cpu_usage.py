@@ -5,58 +5,77 @@ import os
 import numpy as np
 import h5py
 
+import logging
+
 from clusterdata.database import get_connection
+from clusterdata.log import update_log
+from clusterdata.log import ConsoleOutputSuppression
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logging.basicConfig()
 
-# good idea, but cpu usage is not normalized per machine but globally
-
-#_MACHINE_SUBQUERY = """
-#SELECT DISTINCT(machine_id) AS m_id, cpus FROM machine_events
-#""".strip()
-#
-#_QUERY = """
-#SELECT cpu_rate, cpus FROM task_usage JOIN ({}) AS machines
-#ON task_usage.machine_id = machines.m_id
-#WHERE task_usage.start_time <= %s AND task_usage.end_time > %s
-#""".format(_MACHINE_SUBQUERY).strip()
 
 _QUERY = """
 SELECT cpu_rate, start_time, end_time FROM task_usage
-WHERE start_time <= %(end)s AND end_time >= %(start)s
+ORDER BY start_time, end_time
+LIMIT %(limit)s OFFSET %(offset)s
 """
 
 
-def to_day(t):
-    return t/(1e6*60*60*24)
+class EndOfData(Exception):
+    pass
 
 
-def to_percentage(t, m):
-    return float(t)/m*100
+def add_means_to_array(arr, out):
+    """
+    TODO doc
+    """
+    min_ind = int(np.floor(arr[0, 1]))
+    max_ind = int(np.ceil(arr[-1, 2]))
+    if max_ind == int(arr[-1, 2]):
+        max_ind += 1
+    n = max_ind-min_ind
+
+    x = np.zeros((n,))
+
+    for i in range(n):
+        a = np.maximum(arr[:, 1], i)
+        b = np.minimum(arr[:, 2], i+1)
+        w = b - a
+        w = np.minimum(w, 1)
+        w = np.maximum(w, 0)
+        x[i] = (arr[:, 0] * w).sum()
+
+    out[min_ind:max_ind] += x
 
 
-def update_log(current_time_us, min_time_us, max_time_us):
-    current_time_us -= min_time_us
-    max_time_us -= min_time_us
-    current_time_d = to_day(current_time_us)
-    max_time_d = to_day(max_time_us)
-    percentage = to_percentage(current_time_d, max_time_d)
-    sys.stdout.write("\rday {:.01f} of {:.01f} ({:.02f}%)"
-                     "".format(current_time_d, max_time_d, percentage))
-    sys.stdout.flush()
+def get_data_for_interval(limit, offset, start, end, resolution, out):
+    params = dict(limit=limit, offset=offset)
 
-
-def get_cpu_usage_for_interval(start, end):
     with get_connection() as conn:
         with conn.cursor() as cursor:
-            cursor.execute(_QUERY, {'start': start, 'end': end})
+            cursor.execute(_QUERY, params)
             res = cursor.fetchall()
+
     x = np.asarray(res)
     if x.size == 0:
-        return 0.0
-    a = np.maximum(x[:, 1], start)
-    b = np.minimum(x[:, 2], end)
-    w = (b - a)/float(end - start)
-    return (x[:, 0] * w).sum()
+        raise EndOfData("no data in this range")
+    # normalize to indices
+    max_start_time = x[-1, 1]
+    x[:, 1] = np.maximum(x[:, 1], start)
+    x[:, 2] = np.minimum(x[:, 2], end)
+    x[:, 1] -= start
+    x[:, 2] -= start
+    x[:, 1:] /= float(resolution)
+
+    try:
+        add_means_to_array(x, out)
+    except ValueError:
+        print(x[:, 1].min(), x[:, 2].min())
+        print(x[:, 1].max(), x[:, 2].max())
+        raise
+    return max_start_time, len(x)
 
 
 def run(args):
@@ -67,24 +86,26 @@ def run(args):
     h5ds = h5f.require_dataset("cpu_usage",
                                shape=output.shape, dtype=np.float64)
 
-    for i, t in enumerate(times):
-        if args.verbose:
-            update_log(t, args.start, args.end)
-        output[i, 1] = get_cpu_usage_for_interval(t, t+args.resolution)
+    offset = 0
+    limit = args.chunksize
+
+    while True:
+        try:
+            t, n = get_data_for_interval(limit, offset, args.start, args.end,
+                                         args.resolution, output[:, 1])
+            offset += n
+            if args.verbose:
+                update_log(t, args.start, args.end)
+            logger.info("Processed {} rows".format(offset))
+        except EndOfData:
+            break
+        finally:
+            h5ds[:] = output[:]
 
     if args.verbose:
         sys.stdout.write("\n")
 
-    h5ds[:] = output[:]
     h5f.close()
-
-
-class ConsoleOutputSuppression(object):
-    def __enter__(self):
-        os.system("stty -echo")
-
-    def __exit__(self, *args):
-        os.system("stty echo")
 
 
 if __name__ == "__main__":
@@ -103,6 +124,9 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--end", action="store", type=int,
                         default=2506200000001,
                         help="end time in microseconds")
+    parser.add_argument("-c", "--chunksize", action="store", type=int,
+                        default=10000,
+                        help="number of rows to fetch in each iteration")
 
     args = parser.parse_args()
 
