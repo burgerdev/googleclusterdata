@@ -92,7 +92,6 @@ def run(args):
                     process_csv(f,
                                 args.start, args.end, args.resolution,
                                 output[:, 1])
-                print(output[:, 1].max())
                 h5ds[:] = output[:]
 
             if export_file is not None:
